@@ -1,0 +1,191 @@
+{
+	"archive" : {},
+	"artifacts" : 
+	[
+		{
+			"path" : "_deps/boost-build/libs/atomic/libboost_atomic.a"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"target_compile_definitions",
+			"target_include_directories",
+			"target_link_libraries",
+			"target_compile_features"
+		],
+		"files" : 
+		[
+			"cmake-build-debug/_deps/boost-src/libs/atomic/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 86,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 122,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 132,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 93,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 94,
+				"parent" : 0
+			},
+			{
+				"command" : 3,
+				"file" : 0,
+				"line" : 96,
+				"parent" : 0
+			},
+			{
+				"command" : 4,
+				"file" : 0,
+				"line" : 89,
+				"parent" : 0
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : "-g -std=c++2b -arch arm64 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX26.0.sdk -fcolor-diagnostics"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"backtrace" : 2,
+					"define" : "BOOST_ATOMIC_NO_LIB"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "BOOST_ATOMIC_SOURCE"
+				},
+				{
+					"backtrace" : 3,
+					"define" : "BOOST_ATOMIC_STATIC_LINK"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 4,
+					"path" : "/Users/kuimovmihail/Documents/GitHub/csv_median_calculator/cmake-build-debug/_deps/boost-src/libs/atomic/include"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "/Users/kuimovmihail/Documents/GitHub/csv_median_calculator/cmake-build-debug/_deps/boost-src/libs/atomic/src"
+				},
+				{
+					"backtrace" : 6,
+					"path" : "/Users/kuimovmihail/Documents/GitHub/csv_median_calculator/cmake-build-debug/_deps/boost-src/libs/assert/include"
+				},
+				{
+					"backtrace" : 6,
+					"path" : "/Users/kuimovmihail/Documents/GitHub/csv_median_calculator/cmake-build-debug/_deps/boost-src/libs/config/include"
+				},
+				{
+					"backtrace" : 6,
+					"path" : "/Users/kuimovmihail/Documents/GitHub/csv_median_calculator/cmake-build-debug/_deps/boost-src/libs/type_traits/include"
+				},
+				{
+					"backtrace" : 6,
+					"path" : "/Users/kuimovmihail/Documents/GitHub/csv_median_calculator/cmake-build-debug/_deps/boost-src/libs/static_assert/include"
+				},
+				{
+					"backtrace" : 6,
+					"path" : "/Users/kuimovmihail/Documents/GitHub/csv_median_calculator/cmake-build-debug/_deps/boost-src/libs/align/include"
+				},
+				{
+					"backtrace" : 6,
+					"path" : "/Users/kuimovmihail/Documents/GitHub/csv_median_calculator/cmake-build-debug/_deps/boost-src/libs/core/include"
+				},
+				{
+					"backtrace" : 6,
+					"path" : "/Users/kuimovmihail/Documents/GitHub/csv_median_calculator/cmake-build-debug/_deps/boost-src/libs/throw_exception/include"
+				},
+				{
+					"backtrace" : 6,
+					"path" : "/Users/kuimovmihail/Documents/GitHub/csv_median_calculator/cmake-build-debug/_deps/boost-src/libs/predef/include"
+				},
+				{
+					"backtrace" : 6,
+					"path" : "/Users/kuimovmihail/Documents/GitHub/csv_median_calculator/cmake-build-debug/_deps/boost-src/libs/preprocessor/include"
+				}
+			],
+			"language" : "CXX",
+			"languageStandard" : 
+			{
+				"backtraces" : 
+				[
+					7
+				],
+				"standard" : "23"
+			},
+			"sourceIndexes" : 
+			[
+				0
+			]
+		}
+	],
+	"folder" : 
+	{
+		"name" : "Dependencies"
+	},
+	"id" : "boost_atomic::@af4e7b587c628727a501",
+	"name" : "boost_atomic",
+	"nameOnDisk" : "libboost_atomic.a",
+	"paths" : 
+	{
+		"build" : "_deps/boost-build/libs/atomic",
+		"source" : "cmake-build-debug/_deps/boost-src/libs/atomic"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "cmake-build-debug/_deps/boost-src/libs/atomic/src/lock_pool.cpp",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "STATIC_LIBRARY"
+}

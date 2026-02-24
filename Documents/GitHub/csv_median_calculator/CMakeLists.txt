@@ -25,7 +25,7 @@ FetchContent_Declare(
 )
 
 set(BOOST_ENABLE_CMAKE ON)
-set(BOOST_INCLUDE_LIBRARIES program_options accumulators)
+set(BOOST_INCLUDE_LIBRARIES program_options accumulators algorithm)
 
 FetchContent_Declare(
         Boost
@@ -34,8 +34,31 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(spdlog tomlplusplus Boost)
 
+include(FetchContent)
+
+FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG        v1.14.0
+)
+
+FetchContent_MakeAvailable(googletest)
+
+add_executable(parser_tests tests/test_parser_csv.cpp src/parser_csv.cpp)
+
+target_link_libraries(parser_tests PRIVATE
+        GTest::gtest_main
+        Boost::program_options
+        Boost::algorithm
+)
+
+include(CTest)
+include(GoogleTest)
+gtest_discover_tests(parser_tests)
+
 add_executable(${PROJECT_NAME}
         src/main.cpp
+        src/parser_csv.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -43,4 +66,5 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         tomlplusplus::tomlplusplus
         Boost::program_options
         Boost::accumulators
+        Boost::algorithm
 )
