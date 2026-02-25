@@ -44,10 +44,18 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(googletest)
 
-add_executable(parser_tests tests/test_parser_csv.cpp src/parser_csv.cpp)
+add_executable(parser_tests
+        tests/test_parser_csv.cpp
+        src/parser_csv.cpp
+        tests/test_directory_scanner.cpp
+        src/directory_scanner.cpp
+        src/median_calculator.cpp
+        src/median_calculator.hpp
+)
 
 target_link_libraries(parser_tests PRIVATE
         GTest::gtest_main
+        spdlog::spdlog
         Boost::program_options
         Boost::algorithm
 )
@@ -59,6 +67,9 @@ gtest_discover_tests(parser_tests)
 add_executable(${PROJECT_NAME}
         src/main.cpp
         src/parser_csv.cpp
+        src/directory_scanner.cpp
+        src/median_calculator.cpp
+        src/median_calculator.hpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
