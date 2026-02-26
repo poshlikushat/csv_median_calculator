@@ -10,6 +10,9 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Явно указываем стандарт для clangd/CLion — иначе индексатор не видит <format>, <ranges> и т.д.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 include(FetchContent)
 
 FetchContent_Declare(
@@ -34,8 +37,6 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(spdlog tomlplusplus Boost)
 
-include(FetchContent)
-
 FetchContent_Declare(
         googletest
         GIT_REPOSITORY https://github.com/google/googletest.git
@@ -49,14 +50,18 @@ add_executable(parser_tests
         src/parser_csv.cpp
         tests/test_directory_scanner.cpp
         src/directory_scanner.cpp
+        tests/test_median_calculator.cpp
         src/median_calculator.cpp
         src/median_calculator.hpp
 )
+
+target_compile_features(parser_tests PRIVATE cxx_std_23)
 
 target_link_libraries(parser_tests PRIVATE
         GTest::gtest_main
         spdlog::spdlog
         Boost::program_options
+        Boost::accumulators
         Boost::algorithm
 )
 
@@ -71,6 +76,8 @@ add_executable(${PROJECT_NAME}
         src/median_calculator.cpp
         src/median_calculator.hpp
 )
+
+target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
         spdlog::spdlog
