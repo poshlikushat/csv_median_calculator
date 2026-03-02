@@ -3,15 +3,17 @@
  * \author github:poshlikushat
  * \brief Реализация инкрементального расчёта медианы цен из CSV-файлов
  * \date 2026-02-27
- * \version 1.0
+ * \version 1.1
  */
 
 #include <algorithm>
 #include <fstream>
 #include <iomanip>
 #include <limits>
-#include <queue>
+#include <mutex>
 #include <string>
+#include <thread>
+#include <vector>
 
 #include <spdlog/spdlog.h>
 
@@ -20,19 +22,14 @@
 
 namespace app {
 
-// ─── Расчёт медианы ─────────────────────────────────────────────────────────
+// Расчёт медианы
 //
-// По требованию ТЗ используется Boost.Accumulators (tag::median).
-// ВАЖНО: tag::median реализует приближённый алгоритм p² (P-squared quantile
-// estimator). Он эффективен на больших потоковых выборках (>1000 элементов),
-// но даёт некорректные результаты на малых наборах данных — например,
-// для двух элементов [100, 102] вернёт 100 вместо точного 101.
+// Используется Boost.Accumulators (tag::median) — приближённый алгоритм p²
+// (P-squared quantile estimator). Эффективен на больших потоковых выборках
+// (>1000 элементов), но даёт погрешность на малых наборах данных.
 //
-// Если требуется точная медиана (например, в unit-тестах на малых данных),
-// следует использовать реализацию на двух кучах (median_heap ниже),
-// которая гарантирует O(log n) на вставку и O(1) на запрос медианы.
-//
-// Точная реализация через две кучи (оставлена для справки):
+// Точная альтернатива через две кучи (min-heap + max-heap) оставлена
+// закомментированной — даёт O(log n) на вставку и O(1) на запрос:
 //
 // class median_heap {
 // public:
@@ -44,13 +41,11 @@ namespace app {
 //         }
 //         balance();
 //     }
-//
 //     [[nodiscard]] double median() const noexcept {
 //         if (lower_.size() > upper_.size()) return lower_.top();
 //         if (upper_.size() > lower_.size()) return upper_.top();
 //         return (lower_.top() + upper_.top()) / 2.0;
 //     }
-//
 // private:
 //     void balance() noexcept {
 //         while (lower_.size() > upper_.size() + 1) {
@@ -68,7 +63,7 @@ using accumulator_t = acc::accumulator_set<
     double,
     acc::stats<acc::tag::median>>;
 
-// ─── Публичный интерфейс ────────────────────────────────────────────────────
+// Публичный интерфейс
 
 median_calculator::median_calculator(
     std::vector<fs::path> input_files_,
@@ -76,19 +71,19 @@ median_calculator::median_calculator(
     : _input_files{std::move(input_files_)},
       _output_path{std::move(output_path_)} {}
 
-bool median_calculator::run() noexcept {
-    spdlog::info("Загрузка данных из {} файлов", _input_files.size());
+bool median_calculator::run() const noexcept {
+    spdlog::info("Параллельная загрузка данных из {} файлов", _input_files.size());
 
-    auto records = load_records();
+    auto records = load_records_parallel();
 
     if (records.empty()) {
         spdlog::warn("Нет данных для обработки — выходной файл не будет создан");
         return false;
     }
 
-    // Сортировка по временной метке — ключевое требование ТЗ для корректной
-    // инкрементальной медианы
-    std::sort(records.begin(), records.end(), [](const price_record& a_, const price_record& b_) {
+    // Каждая новая цена должна учитывать все предыдущие
+    // в хронологическом порядке
+    std::ranges::sort(records, [](const price_record& a_, const price_record& b_) {
         return a_.receive_ts < b_.receive_ts;
     });
 
@@ -97,55 +92,77 @@ bool median_calculator::run() noexcept {
     return calculate_and_write(records);
 }
 
-// ─── Приватные методы ───────────────────────────────────────────────────────
+// Приватные методы
 
-std::vector<price_record> median_calculator::load_records() const noexcept {
+std::vector<price_record> median_calculator::load_records_parallel() const noexcept {
     std::vector<price_record> all_records;
-    exchange_data::csv_parser parser;
+    std::mutex                records_mutex;
+
+    // Запускаем по одному jthread на каждый файл.
+    std::vector<std::jthread> threads;
+    threads.reserve(_input_files.size());
 
     for (const auto& path : _input_files) {
-        const std::string filepath  = path.string();
-        const std::string file_type = detect_file_type(path);
-
-        if (file_type.empty()) {
-            spdlog::warn("Пропущен файл с неизвестным типом: {}", filepath);
-            continue;
-        }
-
-        try {
-            if ("level" == file_type) {
-                const auto rows = parser.parse_levels(filepath, std::string{k_delimiter});
-
-                // Резервируем заранее, чтобы избежать реаллокаций
-                all_records.reserve(all_records.size() + rows.size());
-
-                for (const auto& row : rows) {
-                    all_records.emplace_back(row.receive_ts, row.price);
-                }
-
-                spdlog::info("Файл level '{}': прочитано {} записей",
-                    path.filename().string(), rows.size());
-
-            } else {
-                const auto rows = parser.parse_trades(filepath, std::string{k_delimiter});
-
-                all_records.reserve(all_records.size() + rows.size());
-
-                for (const auto& row : rows) {
-                    all_records.emplace_back(row.receive_ts, row.price);
-                }
-
-                spdlog::info("Файл trade '{}': прочитано {} записей",
-                    path.filename().string(), rows.size());
-            }
-
-        } catch (const std::exception& e) {
-            // Один сломанный файл не должен останавливать всю обработку
-            spdlog::error("Ошибка чтения файла '{}': {}", filepath, e.what());
-        }
+        threads.emplace_back([this, &path, &records_mutex, &all_records] {
+            load_one_file(path, records_mutex, all_records);
+        });
     }
 
     return all_records;
+}
+
+void median_calculator::load_one_file(
+    const fs::path&            path_,
+    std::mutex&                out_mutex_,
+    std::vector<price_record>& out_records_) const noexcept {
+
+    const std::string filepath  = path_.string();
+    const std::string file_type = detect_file_type(path_);
+
+    if (file_type.empty()) {
+        spdlog::warn("Пропущен файл с неизвестным типом: {}", filepath);
+        return;
+    }
+
+    try {
+        exchange_data::csv_parser parser;
+        std::vector<price_record> local_records;
+
+        if ("level" == file_type) {
+            const auto rows = parser.parse_levels(filepath, std::string{k_delimiter});
+            local_records.reserve(rows.size());
+
+            for (const auto& row : rows) {
+                local_records.emplace_back(row.receive_ts, row.price);
+            }
+
+            spdlog::info(std::format("Файл level '{}': прочитано {} записей",
+                path_.filename().string(), rows.size()));
+
+        } else {
+            const auto rows = parser.parse_trades(filepath, std::string{k_delimiter});
+            local_records.reserve(rows.size());
+
+            for (const auto& row : rows) {
+                local_records.emplace_back(row.receive_ts, row.price);
+            }
+
+            spdlog::info(std::format("Файл trade '{}': прочитано {} записей",
+                path_.filename().string(), rows.size()));
+        }
+
+        // Объединяем локальный результат в общий вектор
+        const std::lock_guard<std::mutex> lock{out_mutex_};
+        out_records_.reserve(out_records_.size() + local_records.size());
+        out_records_.insert(
+            out_records_.end(),
+            std::make_move_iterator(local_records.begin()),
+            std::make_move_iterator(local_records.end()));
+
+    } catch (const std::exception& e) {
+        // Один сломанный файл не должен останавливать всю обработку
+        spdlog::error("Ошибка чтения файла '{}': {}", filepath, e.what());
+    }
 }
 
 bool median_calculator::calculate_and_write(
@@ -154,6 +171,7 @@ bool median_calculator::calculate_and_write(
     // Создаём выходную директорию если её нет
     std::error_code ec;
     fs::create_directories(_output_path.parent_path(), ec);
+
     if (ec) {
         spdlog::error("Не удалось создать директорию '{}': {}",
             _output_path.parent_path().string(), ec.message());
@@ -161,27 +179,32 @@ bool median_calculator::calculate_and_write(
     }
 
     std::ofstream out(_output_path);
+
     if (!out.is_open()) {
         spdlog::error("Не удалось открыть выходной файл: {}", _output_path.string());
         return false;
     }
 
+    // Буферизуем запись: для >100MB файлов сброс на каждой строке катастрофически
+    // медленный — используем буфер 256KB для пакетной записи
+    constexpr std::size_t k_buf_size = 256 * 1024;
+    std::vector<char>     write_buf(k_buf_size);
+    out.rdbuf()->pubsetbuf(write_buf.data(), static_cast<std::streamsize>(k_buf_size));
+
     out << "receive_ts;price_median\n";
 
     accumulator_t accumulator;
 
-    double   last_median   = std::numeric_limits<double>::quiet_NaN();
-    uint64_t written_count = 0;
+    double       last_median   = std::numeric_limits<double>::quiet_NaN();
+    std::uint64_t written_count = 0;
 
-    for (const auto& record : records_) {
-        accumulator(record.price);
+    for (const auto &[receive_ts, price] : records_) {
+        accumulator(price);
 
-        const double current_median = acc::median(accumulator);
-
-        // NaN-безопасное сравнение: при первой итерации last_median == NaN,
+			// NaN-безопасное сравнение: при первой итерации last_median == NaN,
         // поэтому условие всегда истинно — первая медиана всегда записывается
-        if (current_median != last_median) {
-            out << record.receive_ts << ';'
+        if (const double current_median = acc::median(accumulator); current_median != last_median) {
+            out << receive_ts << ';'
                 << std::fixed << std::setprecision(k_price_precision)
                 << current_median << '\n';
 
@@ -202,6 +225,7 @@ std::string median_calculator::detect_file_type(const fs::path& path_) noexcept 
     if (filename.contains("level")) {
         return "level";
     }
+
     if (filename.contains("trade")) {
         return "trade";
     }

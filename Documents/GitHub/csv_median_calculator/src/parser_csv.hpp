@@ -2,64 +2,67 @@
 * \file parser_csv.hpp
  * \author github:poshlikushat
  * \brief Парсер CSV файлов для обработки биржевых данных
- * \date 2026-02-24
- * \version 1.0
+ * \date 2026-02-27
+ * \version 1.1
  */
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
 namespace exchange_data {
 
 	/**
-	 * \brief Структура для хранения данных стакана (level.csv)
+	 * \brief Данные одного уровня стакана заявок (level.csv)
 	 */
 	struct level_data {
-		long long receive_ts;
-		long long exchange_ts;
-		double price;
-		double quantity;
-		std::string side;
-		int rebuild;
+		std::int64_t receive_ts;
+		std::int64_t exchange_ts;
+		double       price;
+		double       quantity;
+		std::string  side;
+		std::int32_t rebuild;
 	};
 
 	/**
-	 * \brief Структура для хранения данных сделок (trade.csv)
+	 * \brief Данные одной совершённой сделки (trade.csv)
 	 */
 	struct trade_data {
-		long long receive_ts;
-		long long exchange_ts;
-		double price;
-		double quantity;
-		std::string side;
+		std::int64_t receive_ts;
+		std::int64_t exchange_ts;
+		double       price;
+		double       quantity;
+		std::string  side;
 	};
 
 	/**
-	 * \brief Класс для чтения и парсинга CSV файлов
+	 * \brief Класс для чтения и парсинга CSV файлов биржевых торгов
 	 */
 	class csv_parser {
 	public:
 		/**
 		 * \brief Читает файл стакана заявок и возвращает вектор структур
-		 * \param filepath_ Путь к CSV файлу
-		 * \param delimiter_ Символ-разделитель (например, ";")
-		 * \return std::vector<level_data> Список записей стакана
+		 * \param filepath_   Путь к CSV файлу
+		 * \param delimiter_  Символ-разделитель (например, ";")
+		 * \return Список записей стакана
+		 * \throws std::runtime_error если файл не удалось открыть
 		 */
-		static std::vector<level_data> parse_levels(
-				const std::string& filepath_,
-				const std::string& delimiter_ ) noexcept(false);
+		[[nodiscard]] static std::vector<level_data> parse_levels(
+		    const std::string& filepath_,
+		    const std::string& delimiter_) noexcept(false);
 
 		/**
-		 * \brief Читает файл совершенных сделок и возвращает вектор структур
-		 * \param filepath_ Путь к CSV файлу
-		 * \param delimiter_ Символ-разделитель
-		 * \return std::vector<trade_data> Список сделок
+		 * \brief Читает файл совершённых сделок и возвращает вектор структур
+		 * \param filepath_   Путь к CSV файлу
+		 * \param delimiter_  Символ-разделитель
+		 * \return Список сделок
+		 * \throws std::runtime_error если файл не удалось открыть
 		 */
-		static std::vector<trade_data> parse_trades(
-				const std::string& filepath_,
-				const std::string& delimiter_ ) noexcept(false);
+		[[nodiscard]] static std::vector<trade_data> parse_trades(
+		    const std::string& filepath_,
+		    const std::string& delimiter_) noexcept(false);
 	};
 
 } // namespace exchange_data

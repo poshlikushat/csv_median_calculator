@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Явно указываем стандарт для clangd/CLion — иначе индексатор не видит <format>, <ranges> и т.д.
+# Явно экспортируем compile_commands.json — иначе clangd/CLion не видит <format>, <ranges>
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(FetchContent)
@@ -18,13 +18,13 @@ include(FetchContent)
 FetchContent_Declare(
         spdlog
         GIT_REPOSITORY https://github.com/gabime/spdlog.git
-        GIT_TAG v1.13.0
+        GIT_TAG        v1.15.1
 )
 
 FetchContent_Declare(
         tomlplusplus
         GIT_REPOSITORY https://github.com/marzer/tomlplusplus.git
-        GIT_TAG v3.4.0
+        GIT_TAG        v3.4.0
 )
 
 set(BOOST_ENABLE_CMAKE ON)
@@ -45,14 +45,15 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(googletest)
 
+# ─── Тесты ──────────────────────────────────────────────────────────────────
+
 add_executable(parser_tests
         tests/test_parser_csv.cpp
-        src/parser_csv.cpp
         tests/test_directory_scanner.cpp
-        src/directory_scanner.cpp
         tests/test_median_calculator.cpp
+        src/parser_csv.cpp
+        src/directory_scanner.cpp
         src/median_calculator.cpp
-        src/median_calculator.hpp
 )
 
 target_compile_features(parser_tests PRIVATE cxx_std_23)
@@ -63,18 +64,20 @@ target_link_libraries(parser_tests PRIVATE
         Boost::program_options
         Boost::accumulators
         Boost::algorithm
+        Threads::Threads
 )
 
 include(CTest)
 include(GoogleTest)
 gtest_discover_tests(parser_tests)
 
+# ─── Основное приложение ────────────────────────────────────────────────────
+
 add_executable(${PROJECT_NAME}
         src/main.cpp
         src/parser_csv.cpp
         src/directory_scanner.cpp
         src/median_calculator.cpp
-        src/median_calculator.hpp
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
@@ -85,4 +88,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         Boost::program_options
         Boost::accumulators
         Boost::algorithm
+        Threads::Threads
 )
+
+# Threads::Threads предоставляется встроенным модулем CMake
+find_package(Threads REQUIRED)

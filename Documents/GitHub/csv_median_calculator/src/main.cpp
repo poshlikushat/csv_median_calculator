@@ -3,11 +3,11 @@
  * \author github:poshlikushat
  * \brief Точка входа приложения csv_median_calculator
  * \date 2026-02-27
- * \version 1.0
+ * \version 1.1
  */
 
-#include <iostream>
 #include <filesystem>
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -21,18 +21,18 @@
 namespace fs = std::filesystem;
 namespace po = boost::program_options;
 
-// ─── Константы ──────────────────────────────────────────────────────────────
+// Константы
 
-static constexpr std::string_view k_app_version{"1.0.0"};
+static constexpr std::string_view k_app_version{"1.1.0"};
 static constexpr std::string_view k_default_config{"config.toml"};
 static constexpr std::string_view k_default_output_dir{"output"};
 static constexpr std::string_view k_output_filename{"median_result.csv"};
 
-// ─── Вспомогательные структуры и функции ────────────────────────────────────
+// Вспомогательные структуры и функции
 
 struct app_config {
-    fs::path              input_dir;
-    fs::path              output_dir;
+    fs::path                 input_dir;
+    fs::path                 output_dir;
     std::vector<std::string> masks;
 };
 
@@ -41,27 +41,29 @@ struct app_config {
  * \param argc_ Количество аргументов
  * \param argv_ Массив аргументов
  * \return Путь к файлу конфигурации
+ * \throws std::exception при ошибке разбора аргументов
  */
 [[nodiscard]] std::string parse_args(int argc_, char* argv_[]) noexcept(false) {
     po::options_description desc("Параметры");
     desc.add_options()
-        ("help,h",   "Показать справку")
-        ("config",   po::value<std::string>(), "Путь к конфигурационному файлу")
-        ("cfg",      po::value<std::string>(), "Путь к конфигурационному файлу (псевдоним)");
+        ("help,h",  "Показать справку")
+        ("config",  po::value<std::string>(), "Путь к конфигурационному файлу")
+        ("cfg",     po::value<std::string>(), "Путь к конфигурационному файлу (псевдоним)");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc_, argv_, desc), vm);
     po::notify(vm);
 
-    if (vm.count("help")) {
-        std::cout << desc << "\n";
+    if (vm.contains("help")) {
+        std::cout << desc << '\n';
         std::exit(0);
     }
 
-    if (vm.count("config")) {
+    if (vm.contains("config")) {
         return vm["config"].as<std::string>();
     }
-    if (vm.count("cfg")) {
+
+    if (vm.contains("cfg")) {
         return vm["cfg"].as<std::string>();
     }
 
@@ -73,19 +75,17 @@ struct app_config {
  * \brief Читает и валидирует конфигурационный TOML-файл
  * \param config_path_ Путь к файлу конфигурации
  * \return Заполненная структура app_config
- *
- * Падает с исключением если обязательные поля отсутствуют или путь не найден.
+ * \throws std::runtime_error если обязательные поля отсутствуют или путь не найден
  */
 [[nodiscard]] app_config load_config(const fs::path& config_path_) noexcept(false) {
     if (!fs::exists(config_path_)) {
         throw std::runtime_error(
-            "Конфигурационный файл не найден: " + config_path_.string());
+            std::format("Конфигурационный файл не найден: {}", config_path_.string()));
     }
 
     const auto toml = toml::parse_file(config_path_.string());
     app_config cfg;
 
-    // input обязателен
     const auto input = toml["main"]["input"].value<std::string>();
     if (!input) {
         throw std::runtime_error("Отсутствует обязательный параметр: main.input");
@@ -108,8 +108,6 @@ struct app_config {
     return cfg;
 }
 
-// ─── Точка входа ────────────────────────────────────────────────────────────
-
 int main(int argc, char* argv[]) {
     spdlog::info("Запуск приложения csv_median_calculator v{}", k_app_version);
 
@@ -131,9 +129,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    spdlog::info("Чтение конфигурации: {}", config_path);
-    spdlog::info("Входная директория: {}", cfg.input_dir.string());
-    spdlog::info("Выходная директория: {}", cfg.output_dir.string());
+    spdlog::info(std::format("Конфигурация: input='{}', output='{}'",
+        cfg.input_dir.string(), cfg.output_dir.string()));
 
     // 3. Сканируем директорию
     app::io::directory_scanner scanner(cfg.input_dir, cfg.masks);
@@ -154,7 +151,7 @@ int main(int argc, char* argv[]) {
         spdlog::info("  - {}", f.filename().string());
     }
 
-    // 4. Запускаем расчёт медианы
+    // 4. Запускаем расчёт медианы (параллельное чтение внутри)
     const fs::path output_path = cfg.output_dir / k_output_filename;
     app::median_calculator calculator(std::move(files), output_path);
 

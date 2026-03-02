@@ -3,11 +3,12 @@
  * \author github:poshlikushat
  * \brief Инкрементальный расчёт медианы цен из CSV-файлов биржевых торгов
  * \date 2026-02-27
- * \version 1.0
+ * \version 1.1
  */
+
 #pragma once
 
-#include <filesystem>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -19,8 +20,7 @@
 
 namespace app {
 
-namespace fs = std::filesystem;
-
+namespace fs  = std::filesystem;
 namespace acc = boost::accumulators;
 
 /// Единая запись с временной меткой и ценой — общий знаменатель для level и trade
@@ -33,9 +33,10 @@ struct price_record {
  * \brief Вычисляет инкрементальную медиану цен из CSV-файлов и записывает
  *        результат в выходной файл.
  *
- * Класс объединяет данные из level- и trade-файлов, сортирует их по receive_ts
- * и последовательно добавляет цены в аккумулятор Boost. При каждом изменении
- * медианы строка фиксируется в выходном CSV.
+ * Файлы загружаются параллельно через std::jthread — каждый файл в отдельном
+ * потоке. После завершения всех потоков записи объединяются, сортируются по
+ * receive_ts и последовательно подаются в аккумулятор Boost. При каждом
+ * изменении медианы строка фиксируется в выходном CSV.
  */
 class median_calculator {
 public:
@@ -49,20 +50,32 @@ public:
         fs::path              output_path_) noexcept;
 
     /**
-     * \brief Запускает полный цикл: чтение → сортировка → расчёт → запись
+     * \brief Запускает полный цикл: параллельное чтение → сортировка → расчёт → запись
      * \return true если обработка прошла без критических ошибок
      */
-    bool run() noexcept;
+    bool run() const noexcept;
 
 private:
     /**
-     * \brief Читает все входные файлы и объединяет записи в единый вектор
-     * \return Вектор price_record из всех файлов
+     * \brief Параллельно читает все входные файлы через std::jthread
+     * \return Объединённый вектор price_record из всех файлов
      *
-     * Определяет тип файла (level/trade) по имени, вызывает соответствующий
-     * метод парсера. Некорректные файлы пропускаются с предупреждением.
+     * Каждый файл обрабатывается в отдельном jthread. Результаты защищены
+     * мьютексом при записи в общий вектор. Некорректные файлы пропускаются
+     * с предупреждением.
      */
-    [[nodiscard]] std::vector<price_record> load_records() const noexcept;
+    [[nodiscard]] std::vector<price_record> load_records_parallel() const noexcept;
+
+    /**
+		 * \brief Читает один файл и добавляет его записи в общий вектор
+		 * \param path_        Путь к файлу
+		 * \param out_mutex_   Мьютекс для защиты out_records_
+		 * \param out_records_ Общий выходной вектор
+		 */
+		void load_one_file(
+        const fs::path&            path_,
+        std::mutex&                out_mutex_,
+        std::vector<price_record>& out_records_) const noexcept;
 
     /**
      * \brief Вычисляет медиану инкрементально и пишет изменения в файл
@@ -83,10 +96,10 @@ private:
     std::vector<fs::path> _input_files;
     fs::path              _output_path;
 
-    /// Разделитель CSV согласно ТЗ
+    /// Разделитель CSV
     static constexpr std::string_view k_delimiter{";"};
 
-    /// Формат вещественного числа в выходном файле (8 знаков после запятой)
+    /// Количество знаков после запятой в выходном файле
     static constexpr int k_price_precision{8};
 };
 

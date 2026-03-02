@@ -1,6 +1,4 @@
-[data]
-
-lelev_file = "examples/input/btcusdt_level_2024.csv"
-trade_file = "examples/input/btcusdt_trade_2024.csv"
-
-delimetr = ";"
+[main]
+input = "examples/input"
+output = "examples/output"
+filename_mask = ["level", "trade"]
